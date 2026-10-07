@@ -2,6 +2,8 @@
 
 Unofficial REAPER JSFX UI wrappers for Analog Obsession plugins (BritChannel, BUSTERse, FETish, LAEA, LALA, Rare, SSQ, VariMOon): mixer-strip GUIs.
 
+![All eight wrappers](images/overview.png)
+
 ## Requirements
 
 - REAPER
