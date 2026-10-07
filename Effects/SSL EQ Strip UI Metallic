@@ -29,6 +29,8 @@ bg_w = 0;
 bg_h = 0;
 gfx_ext_flags = 256;
 kdown = 3;   // pixels to push every knob down (raise it if a knob still touches its text)
+tipx = 0;
+tipy = 0;
 
 // ---- DEFAULTS (double-click reset values, 0..1) ----
 defv = 100;
@@ -50,6 +52,48 @@ defv[18] = 0.5;    // Output
 function setcol(r, g, b)
 (
   colr = r; colg = g; colb = b;
+);
+
+// ---- FLOATING VALUE READOUT ----
+function valstr(id, v)
+(
+  (id == 1)  ? ( (v < 0.002) ? strcpy(#tip, "OFF") : sprintf(#tip, "%.0f Hz", 16 + (350 - 16)*v*v) );   // squared taper
+  (id == 2)  ? ( (v > 0.998) ? strcpy(#tip, "OFF") : sprintf(#tip, "%.2f kHz", 1 + (20 - 1)*v) );       // linear
+  (id == 7)  ? sprintf(#tip, "%.2f kHz", 1.5 + v*(16 - 1.5));          // linear
+  (id == 10) ? sprintf(#tip, "%.2f kHz", 0.6*exp(v*log(7/0.6)));       // log
+  (id == 13) ? sprintf(#tip, "%.2f kHz", 0.2*exp(v*log(2.5/0.2)));     // log
+  (id == 15) ? sprintf(#tip, "%.0f Hz",  30*exp(v*log(450/30)));       // log
+  ((id == 3) || (id == 4) || (id == 9) || (id == 12)) ? sprintf(#tip, "%+.1f dB", (v - 0.5)*40);
+  ((id == 11) || (id == 14)) ? sprintf(#tip, "Q %.2f", v);
+  ((id == 17) || (id == 18)) ? sprintf(#tip, "%+.1f dB", (v - 0.5)*48);
+);
+
+function tipbox()
+  local(tw, th, bw3, bh3, bx3, by3)
+(
+  gfx_setfont(2);
+  gfx_measurestr(#tip, tw, th);
+  bw3 = tw + 12;
+  bh3 = th + 6;
+  bx3 = max(1, min(w - bw3 - 1, tipx - bw3/2));
+  by3 = tipy - kr - bh3 - 6;
+  (by3 < 1) ? by3 = tipy + kr + 6;     // flip below if no room above
+
+  gfx_set(0, 0, 0, 0.5);
+  gfx_rect(bx3 + 2, by3 + 2, bw3, bh3);     // shadow
+  gfx_set(0.07, 0.07, 0.07, 0.96);
+  gfx_rect(bx3, by3, bw3, bh3);             // body
+  gfx_set(0.6, 0.6, 0.6);
+  gfx_rect(bx3, by3, bw3, 1);               // border
+  gfx_rect(bx3, by3 + bh3 - 1, bw3, 1);
+  gfx_rect(bx3, by3, 1, bh3);
+  gfx_rect(bx3 + bw3 - 1, by3, 1, bh3);
+  gfx_a = 1;
+
+  gfx_set(1, 0.85, 0.3);                    // amber text
+  gfx_x = bx3 + 6;
+  gfx_y = by3 + 3;
+  gfx_drawstr(#tip);
 );
 
 // vertical grey gradient, built from 1px rows
@@ -92,6 +136,8 @@ function knob(id, x, y, r, v)
   ((drag == id) && (mouse_cap & 1)) ? (
     v = max(0, min(1, dragv + (dragy - mouse_y) * 0.005));
     changed = id;
+    tipx = x;
+    tipy = y;
   );
 
   // tick dots around the arc
@@ -449,6 +495,12 @@ setcol(0.55, 0.38, 0.22);
 slider4  = gcell(4, cx1, yP, slider4);
 slider15 = kcell(15, cx2, yP, slider15, "Hz", "30", "450");
 slider16 = pbtn(16, bx, yQ + by_off, bwb, bhh, slider16, "LB", 1, 0.25, 0.2);
+
+// floating value readout while dragging (drawn last so it sits on top)
+((drag != 0) && (mouse_cap & 1)) ? (
+  valstr(drag, slider(drag));
+  tipbox();
+);
 
 (changed == 1)  ? slider_automate(slider1);
 (changed == 2)  ? slider_automate(slider2);
