@@ -1,0 +1,257 @@
+desc:FETish Wrapper UI
+slider1:0.5<0,1,0.001>-Input
+slider2:0.0<0,1,0.001>-Output
+slider3:0.65<0,1,0.001>-Attack
+slider4:0.0<0,1,0.001>-Release
+slider5:0.0<0,1,0.001>-Ratio
+slider6:1<0,1,0.001>-Mix
+
+@init
+drag = 0;
+last_cap = 0;
+changed = 0;
+last_click_id = 0;
+last_click_t = 0;
+colr = 0.5; colg = 0.5; colb = 0.5;
+dragy = 0; dragv = 0;
+
+gfx_ext_flags = 256;
+
+bg_w = 0;
+bg_h = 0;
+
+defv = 100;
+defv[1] = 0.20;   // Input
+defv[2] = 0.0;    // Output
+defv[3] = 0.65;   // Attack
+defv[4] = 0.0;    // Release
+defv[5] = 0.0;    // Ratio
+defv[6] = 1;      // Mix
+
+function setcol(r, g, b) ( colr = r; colg = g; colb = b; );
+
+
+// ============================================================
+// METALLIC BACKGROUND
+// ============================================================
+
+function build_bg(bw, bh)
+  local(x, y, n, n2, base)
+(
+  gfx_dest = 1;
+  gfx_setimgdim(1, bw, bh);
+
+  y = 0;
+
+  loop(bh,
+
+    x = 0;
+
+    loop(bw,
+
+      // Fine metallic grain
+      n = sin(
+        x*12.9898 +
+        y*78.233
+      ) * 43758.5453;
+
+      n = n - floor(n);
+
+      // Slight larger-scale variation
+      n2 = sin(
+        x*0.37 +
+        y*3.17
+      ) * 43758.5453;
+
+      n2 = n2 - floor(n2);
+
+      // Original dark charcoal character:
+      // #1A1A1A = approximately 0.102
+      base =
+        0.102
+        + (n - 0.5)*0.012
+        + (n2 - 0.5)*0.004;
+
+      gfx_x = x;
+      gfx_y = y;
+
+      gfx_setpixel(
+        base,
+        base,
+        base
+      );
+
+      x += 1;
+    );
+
+    y += 1;
+  );
+
+  gfx_dest = -1;
+);
+
+
+function knob(id, x, y, r, v)
+  local(a, dx, dy, now, i, t)
+(
+  dx = mouse_x - x;
+  dy = mouse_y - y;
+  now = time_precise();
+
+  ((mouse_cap & 1) && (last_cap == 0) && ((dx*dx + dy*dy) < (r*r*1.3))) ? (
+    ((last_click_id == id) && ((now - last_click_t) < 0.35)) ? (
+      v = defv[id];
+      changed = id;
+      drag = 0;
+      last_click_id = 0;
+    ) : (
+      drag = id;
+      dragy = mouse_y;
+      dragv = v;
+      last_click_id = id;
+      last_click_t = now;
+    );
+  );
+
+  ((drag == id) && (mouse_cap & 1)) ? (
+    v = max(0, min(1, dragv + (dragy - mouse_y) * 0.005));
+    changed = id;
+  );
+
+  // tick dots
+  gfx_set(0.55, 0.55, 0.55);
+  i = 0;
+  loop(11,
+    t = $pi*0.75 + i*$pi*0.15;
+    gfx_circle(x + cos(t)*r*1.3, y + sin(t)*r*1.3, max(1, r*0.06), 1, 1);
+    i += 1;
+  );
+
+  // knob body (silver/white like the FETish)
+  gfx_set(0.12, 0.12, 0.12);
+  gfx_circle(x, y, r + 1.5, 1, 1);
+  gfx_set(0.82, 0.82, 0.80);
+  gfx_circle(x, y, r, 1, 1);
+  gfx_set(0.92, 0.92, 0.90);
+  gfx_circle(x - r*0.12, y - r*0.16, r*0.65, 1, 1);
+
+  // pointer
+  a = $pi*0.75 + v*$pi*1.5;
+  gfx_set(0.1, 0.1, 0.1);
+  gfx_line(x + cos(a)*r*0.2, y + sin(a)*r*0.2, x + cos(a)*r*0.92, y + sin(a)*r*0.92);
+  gfx_line(x + cos(a)*r*0.2 + 1, y + sin(a)*r*0.2, x + cos(a)*r*0.92 + 1, y + sin(a)*r*0.92);
+  v;
+);
+
+function label(str, cx, ty)
+  local(tw, th)
+(
+  gfx_measurestr(str, tw, th);
+  gfx_x = cx - tw/2;
+  gfx_y = ty;
+  gfx_drawstr(str);
+);
+
+function tlab(str, frac)
+  local(t)
+(
+  t = $pi*0.75 + frac*$pi*1.5;
+  gfx_setfont(1);
+  gfx_set(0.7, 0.7, 0.7);
+  label(str, lx + cos(t)*kr*1.5, ly + sin(t)*kr*1.5 - fs*0.45);
+);
+
+function ccell(id, cx, yt, v, name)
+  local(cy)
+(
+  cy = yt + unit*0.42;
+  lx = cx; ly = cy;
+  v = knob(id, cx, cy, kr, v);
+  gfx_setfont(2);
+  gfx_set(0.9, 0.9, 0.9);
+  label(name, cx, cy + kr*1.1 + fs*0.7);
+  v;
+);
+
+@gfx 120 200
+
+gfx_ext_flags = 256;
+
+w = gfx_w;
+h = gfx_h;
+
+
+// ============================================================
+// METALLIC BACKGROUND
+// ============================================================
+
+((w != bg_w) || (h != bg_h)) ? (
+  bg_w = w;
+  bg_h = h;
+
+  build_bg(
+    w,
+    h
+  );
+);
+
+gfx_a = 1;
+gfx_x = 0;
+gfx_y = 0;
+
+gfx_blit(
+  1,
+  1,
+  0
+);
+
+
+// ============================================================
+// ORIGINAL LAYOUT
+// ============================================================
+
+m = max(3, w * 0.03);
+cw = (w - 2*m) / 2;
+cx1 = m + cw*0.5;
+cx2 = m + cw*1.5;
+
+unit = (h - 2*m) / 3.3;
+y1 = m + unit*0.15;
+y2 = y1 + unit;
+y3 = y2 + unit;
+kr = min(cw*0.28, unit*0.28);
+fs = max(7, min(cw, unit)*0.16);
+
+gfx_setfont(1, "Arial", fs);
+gfx_setfont(2, "Arial", fs*1.05, 98);
+
+changed = 0;
+
+// Row 1: Input / Output
+setcol(0.82, 0.82, 0.80);
+slider1 = ccell(1, cx1, y1, slider1, "INPUT");
+tlab("0", 0); tlab("100", 1);
+slider2 = ccell(2, cx2, y1, slider2, "OUTPUT");
+tlab("0", 0); tlab("100", 1);
+
+// Row 2: Attack / Release
+slider3 = ccell(3, cx1, y2, slider3, "ATTACK");
+tlab("fast", 0); tlab("slow", 1);
+slider4 = ccell(4, cx2, y2, slider4, "RELEASE");
+tlab("fast", 0); tlab("slow", 1);
+
+// Row 3: Ratio / Mix
+slider5 = ccell(5, cx1, y3, slider5, "RATIO");
+tlab("4", 0); tlab("20", 1);
+slider6 = ccell(6, cx2, y3, slider6, "MIX");
+tlab("dry", 0); tlab("wet", 1);
+
+(changed == 1) ? slider_automate(slider1);
+(changed == 2) ? slider_automate(slider2);
+(changed == 3) ? slider_automate(slider3);
+(changed == 4) ? slider_automate(slider4);
+(changed == 5) ? slider_automate(slider5);
+(changed == 6) ? slider_automate(slider6);
+
+last_cap = mouse_cap & 1;
+(last_cap == 0) ? (drag = 0);

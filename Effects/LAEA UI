@@ -1,0 +1,439 @@
+desc:LAEA Wrapper UI
+slider1:0.5<0,1,0.001>-Gain
+slider2:0.5<0,1,0.001>-Reduction
+
+@init
+drag = 0;
+last_cap = 0;
+changed = 0;
+last_click_id = 0;
+last_click_t = 0;
+colr = 0.5;
+colg = 0.5;
+colb = 0.5;
+dragy = 0;
+dragv = 0;
+
+gfx_ext_flags = 256;
+
+bg_w = 0;
+bg_h = 0;
+
+defv = 100;
+defv[1] = 0.5;
+defv[2] = 0.5;
+
+function setcol(r, g, b)
+(
+  colr = r;
+  colg = g;
+  colb = b;
+);
+
+
+// ============================================================
+// METALLIC BACKGROUND
+// ============================================================
+
+function build_bg(bw, bh)
+  local(x, y, n, n2, base, rr, gg, bb)
+(
+  gfx_dest = 1;
+  gfx_setimgdim(1, bw, bh);
+
+  y = 0;
+
+  loop(bh,
+
+    x = 0;
+
+    loop(bw,
+
+      // Fine metallic grain
+      n = sin(
+        x*12.9898 +
+        y*78.233
+      ) * 43758.5453;
+
+      n = n - floor(n);
+
+      // Slightly larger-scale tonal variation
+      n2 = sin(
+        x*0.37 +
+        y*3.17
+      ) * 43758.5453;
+
+      n2 = n2 - floor(n2);
+
+      // Original background was #262626.
+      // Keep that dark charcoal character while adding
+      // subtle metallic variation.
+      base =
+        0.149
+        + (n - 0.5)*0.012
+        + (n2 - 0.5)*0.004;
+
+      rr = base;
+      gg = base;
+      bb = base;
+
+      gfx_x = x;
+      gfx_y = y;
+
+      gfx_setpixel(
+        rr,
+        gg,
+        bb
+      );
+
+      x += 1;
+    );
+
+    y += 1;
+  );
+
+  gfx_dest = -1;
+);
+
+
+// ============================================================
+// KNOB
+// ============================================================
+
+function knob(id, x, y, r, v)
+  local(a, dx, dy, now, i, t)
+(
+  dx = mouse_x - x;
+  dy = mouse_y - y;
+  now = time_precise();
+
+  ((mouse_cap & 1) && (last_cap == 0) && ((dx*dx + dy*dy) < (r*r*1.3))) ? (
+    ((last_click_id == id) && ((now - last_click_t) < 0.35)) ? (
+      v = defv[id];
+      changed = id;
+      drag = 0;
+      last_click_id = 0;
+    ) : (
+      drag = id;
+      dragy = mouse_y;
+      dragv = v;
+      last_click_id = id;
+      last_click_t = now;
+    );
+  );
+
+  ((drag == id) && (mouse_cap & 1)) ? (
+    v = max(0, min(1, dragv + (dragy - mouse_y) * 0.005));
+    changed = id;
+  );
+
+  // Original tick-mark color
+  gfx_set(0.72, 0.72, 0.72);
+
+  i = 0;
+  loop(11,
+    t = $pi*0.75 + i*$pi*0.15;
+
+    gfx_circle(
+      x + cos(t)*r*1.3,
+      y + sin(t)*r*1.3,
+      max(1, r*0.06),
+      1,
+      1
+    );
+
+    i += 1;
+  );
+
+  // Original outer knob color
+  gfx_set(0.06, 0.06, 0.06);
+
+  gfx_circle(
+    x,
+    y,
+    r + 1.5,
+    1,
+    1
+  );
+
+  // Original knob color
+  gfx_set(
+    colr,
+    colg,
+    colb
+  );
+
+  gfx_circle(
+    x,
+    y,
+    r,
+    1,
+    1
+  );
+
+  // Original highlight
+  gfx_set(
+    min(1, colr + 0.16),
+    min(1, colg + 0.16),
+    min(1, colb + 0.16)
+  );
+
+  gfx_circle(
+    x - r*0.1,
+    y - r*0.14,
+    r*0.68,
+    1,
+    1
+  );
+
+  // Original white pointer
+  a = $pi*0.75 + v*$pi*1.5;
+
+  gfx_set(
+    1,
+    1,
+    1
+  );
+
+  gfx_line(
+    x + cos(a)*r*0.25,
+    y + sin(a)*r*0.25,
+    x + cos(a)*r*0.95,
+    y + sin(a)*r*0.95
+  );
+
+  gfx_line(
+    x + cos(a)*r*0.25 + 1,
+    y + sin(a)*r*0.25,
+    x + cos(a)*r*0.95 + 1,
+    y + sin(a)*r*0.95
+  );
+
+  v;
+);
+
+
+// ============================================================
+// LABEL
+// ============================================================
+
+function label(str, cx, ty)
+  local(tw, th)
+(
+  gfx_measurestr(str, tw, th);
+
+  gfx_x = cx - tw/2;
+  gfx_y = ty;
+
+  gfx_drawstr(str);
+);
+
+
+// ============================================================
+// TICK LABEL
+// ============================================================
+
+function tlab(str, frac)
+  local(t)
+(
+  t = $pi*0.75 + frac*$pi*1.5;
+
+  gfx_setfont(1);
+
+  // Original color
+  gfx_set(
+    0.85,
+    0.85,
+    0.85
+  );
+
+  label(
+    str,
+    lx + cos(t)*kr*1.55,
+    ly + sin(t)*kr*1.55 - fs*0.5
+  );
+);
+
+
+// ============================================================
+// CONTROL CELL
+// ============================================================
+
+function ccell(id, cx, yt, v, name)
+  local(cy)
+(
+  cy = yt + unit*0.47;
+
+  lx = cx;
+  ly = cy;
+
+  v = knob(
+    id,
+    cx,
+    cy,
+    kr,
+    v
+  );
+
+  gfx_setfont(2);
+
+  // Original color
+  gfx_set(
+    0.95,
+    0.95,
+    0.95
+  );
+
+  label(
+    name,
+    cx,
+    cy + kr*1.15 + fs*0.8
+  );
+
+  v;
+);
+
+
+// ============================================================
+// GRAPHICS
+// ============================================================
+
+@gfx 120 80
+
+gfx_ext_flags = 256;
+
+w = gfx_w;
+h = gfx_h;
+
+
+// ------------------------------------------------------------
+// Build metallic background
+// ------------------------------------------------------------
+
+((w != bg_w) || (h != bg_h)) ? (
+
+  bg_w = w;
+  bg_h = h;
+
+  build_bg(
+    w,
+    h
+  );
+);
+
+
+// ------------------------------------------------------------
+// Draw background
+// ------------------------------------------------------------
+
+gfx_a = 1;
+
+gfx_x = 0;
+gfx_y = 0;
+
+gfx_blit(
+  1,
+  1,
+  0
+);
+
+
+// ============================================================
+// ORIGINAL LAYOUT
+// ============================================================
+
+m = max(
+  3,
+  w * 0.03
+);
+
+cw = (w - 2*m) / 2;
+
+cx1 = m + cw*0.5;
+cx2 = m + cw*1.5;
+
+unit = (h - 2*m) / 1.6;
+y1 = m + unit*0.2 - 2;
+
+kr = min(
+  cw*0.32,
+  unit*0.32
+);
+
+fs = max(
+  8,
+  min(cw, unit)*0.18
+);
+
+gfx_setfont(
+  1,
+  "Arial",
+  fs
+);
+
+gfx_setfont(
+  2,
+  "Arial",
+  fs*1.05,
+  98
+);
+
+changed = 0;
+
+
+// ============================================================
+// GAIN — ORIGINAL COLOR
+// ============================================================
+
+setcol(
+  0.75,
+  0.55,
+  0.25
+);
+
+slider1 = ccell(
+  1,
+  cx1,
+  y1,
+  slider1,
+  "GAIN"
+);
+
+tlab("0", 0);
+tlab("100", 1);
+
+
+// ============================================================
+// REDUCTION — ORIGINAL COLOR
+// ============================================================
+
+setcol(
+  0.7,
+  0.25,
+  0.2
+);
+
+slider2 = ccell(
+  2,
+  cx2,
+  y1,
+  slider2,
+  "REDUCTION"
+);
+
+tlab("0", 0);
+tlab("100", 1);
+
+
+// ============================================================
+// AUTOMATION
+// ============================================================
+
+(changed == 1) ? slider_automate(slider1);
+(changed == 2) ? slider_automate(slider2);
+
+last_cap = mouse_cap & 1;
+
+(last_cap == 0) ? (
+  drag = 0;
+);

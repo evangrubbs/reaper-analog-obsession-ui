@@ -1,0 +1,935 @@
+desc:BritChannel UI
+
+slider1:0.5<0,1,0.001>-Shelf
+slider2:0.5<0,1,0.001>-MF Gain
+slider3:0<0,1,0>-MF Freq
+slider4:0.5<0,1,0.001>-LF Gain
+slider5:0<0,1,0>-LF Freq
+slider6:0<0,1,0>-HP Freq
+slider7:0.5<0,1,0.001>-Mic Gain
+slider8:0.5<0,1,0.001>-Trim
+slider9:1<0,1,1{Off,On}>-Mic In
+
+
+@init
+
+drag = 0;
+last_cap = 0;
+changed = 0;
+
+last_click_id = 0;
+last_click_t = 0;
+
+colr = 0.5;
+colg = 0.5;
+colb = 0.5;
+
+dragy = 0;
+dragv = 0;
+
+lx = 0;
+ly = 0;
+
+tipx = 0;
+tipy = 0;
+
+bg_w = 0;
+bg_h = 0;
+
+gfx_ext_flags = 256;
+
+
+// ---- DEFAULTS (double-click reset values, 0..1) ----
+
+defv = 100;
+
+defv[1] = 0.5;
+defv[2] = 0.5;
+defv[3] = 0;
+defv[4] = 0.5;
+defv[5] = 0;
+defv[6] = 0;
+defv[7] = 0.5;
+defv[8] = 0.5;
+defv[9] = 1;
+
+
+// ---- COLOR ----
+
+function setcol(r,g,b)
+(
+  colr = r;
+  colg = g;
+  colb = b;
+);
+
+
+// ---- FLOATING VALUE READOUT ----
+
+function valstr(id, v)
+  local(idx)
+(
+  // Shelf, MF gain, LF gain: +/-15 dB
+  ((id == 1) || (id == 2) || (id == 4)) ? sprintf(#tip, "%+.1f dB", (v - 0.5)*30);
+
+  // Mic gain, trim: +/-24 dB
+  ((id == 7) || (id == 8)) ? sprintf(#tip, "%+.1f dB", (v - 0.5)*48);
+
+  // MF freq: 7 steps
+  (id == 3) ? (
+    idx = floor(v*6 + 0.5);
+    (idx == 0) ? strcpy(#tip, "OFF");
+    (idx == 1) ? strcpy(#tip, "0.36 kHz");
+    (idx == 2) ? strcpy(#tip, "0.7 kHz");
+    (idx == 3) ? strcpy(#tip, "1.6 kHz");
+    (idx == 4) ? strcpy(#tip, "3.2 kHz");
+    (idx == 5) ? strcpy(#tip, "4.8 kHz");
+    (idx == 6) ? strcpy(#tip, "7.2 kHz");
+  );
+
+  // LF freq: 5 steps
+  (id == 5) ? (
+    idx = floor(v*4 + 0.5);
+    (idx == 0) ? strcpy(#tip, "OFF");
+    (idx == 1) ? strcpy(#tip, "35 Hz");
+    (idx == 2) ? strcpy(#tip, "60 Hz");
+    (idx == 3) ? strcpy(#tip, "110 Hz");
+    (idx == 4) ? strcpy(#tip, "220 Hz");
+  );
+
+  // HP: 5 steps
+  (id == 6) ? (
+    idx = floor(v*4 + 0.5);
+    (idx == 0) ? strcpy(#tip, "OFF");
+    (idx == 1) ? strcpy(#tip, "50 Hz");
+    (idx == 2) ? strcpy(#tip, "80 Hz");
+    (idx == 3) ? strcpy(#tip, "160 Hz");
+    (idx == 4) ? strcpy(#tip, "300 Hz");
+  );
+);
+
+function tipbox()
+  local(tw, th, bw3, bh3, bx3, by3)
+(
+  gfx_setfont(2);
+  gfx_measurestr(#tip, tw, th);
+  bw3 = tw + 12;
+  bh3 = th + 6;
+  bx3 = max(1, min(w - bw3 - 1, tipx - bw3/2));
+  by3 = tipy - kr - bh3 - 6;
+  (by3 < 1) ? by3 = tipy + kr + 6;     // flip below if no room above
+
+  gfx_set(0, 0, 0, 0.5);
+  gfx_rect(bx3 + 2, by3 + 2, bw3, bh3);     // shadow
+  gfx_set(0.07, 0.07, 0.07, 0.96);
+  gfx_rect(bx3, by3, bw3, bh3);             // body
+  gfx_set(0.6, 0.6, 0.6);
+  gfx_rect(bx3, by3, bw3, 1);               // border
+  gfx_rect(bx3, by3 + bh3 - 1, bw3, 1);
+  gfx_rect(bx3, by3, 1, bh3);
+  gfx_rect(bx3 + bw3 - 1, by3, 1, bh3);
+  gfx_a = 1;
+
+  gfx_set(1, 0.85, 0.3);                    // amber text
+  gfx_x = bx3 + 6;
+  gfx_y = by3 + 3;
+  gfx_drawstr(#tip);
+);
+
+
+// ---- MATTE METALLIC BACKGROUND ----
+
+function build_bg(bw,bh)
+  local(x,y,n,rn,base)
+(
+  gfx_setimgdim(1,bw,bh);
+
+  gfx_dest = 1;
+
+  y = 0;
+
+  loop(bh,
+
+    rn = sin(y*4.1414)*43758.5453;
+    rn = rn-floor(rn);
+
+    x = 0;
+
+    loop(bw,
+
+      n = sin(x*12.9898+y*78.233)*43758.5453;
+      n = n-floor(n);
+
+      base =
+        0.205
+        - 0.04*(y/bh)
+        + (n-0.5)*0.045
+        + (rn-0.5)*0.012;
+
+      gfx_x = x;
+      gfx_y = y;
+
+      gfx_setpixel(base,base,base);
+
+      x += 1;
+    );
+
+    y += 1;
+  );
+
+  // panel edge bevel
+  gfx_set(1,1,1,0.13);
+
+  gfx_rect(0,0,bw,1);
+  gfx_rect(0,0,1,bh);
+
+  gfx_set(0,0,0,0.48);
+
+  gfx_rect(0,bh-1,bw,1);
+  gfx_rect(bw-1,0,1,bh);
+
+  gfx_a = 1;
+
+  gfx_dest = -1;
+);
+
+
+// ---- KNOB ----
+
+function knob(id,x,y,r,v,steps)
+  local(a,dx,dy,now,i,t,sens,n)
+(
+  dx = mouse_x-x;
+  dy = mouse_y-y;
+
+  now = time_precise();
+
+  // click / double-click reset
+  ((mouse_cap & 1) &&
+   (last_cap == 0) &&
+   ((dx*dx+dy*dy) < (r*r*1.45))) ?
+  (
+
+    ((last_click_id == id) &&
+     ((now-last_click_t) < 0.35)) ?
+
+    (
+      v = defv[id];
+
+      changed = id;
+
+      drag = 0;
+
+      last_click_id = 0;
+    )
+
+    :
+
+    (
+      drag = id;
+
+      dragy = mouse_y;
+
+      dragv = v;
+
+      last_click_id = id;
+
+      last_click_t = now;
+    );
+  );
+
+  // drag sensitivity
+  sens = (steps > 1) ? 0.012 : 0.005;
+
+  ((drag == id) && (mouse_cap & 1)) ?
+  (
+
+    v =
+      max(
+        0,
+        min(
+          1,
+          dragv+(dragy-mouse_y)*sens
+        )
+      );
+
+    (steps > 1) ?
+    (
+      v =
+        floor(v*(steps-1)+0.5)
+        /(steps-1);
+    );
+
+    changed = id;
+
+    tipx = x;
+    tipy = y;
+  );
+
+  // selector dots
+  n = (steps > 1) ? steps : 11;
+
+  i = 0;
+
+  loop(n,
+
+    t =
+      $pi*0.75
+      +(i/max(1,n-1))*$pi*1.5;
+
+    // dark outer dot
+    gfx_set(0.025,0.025,0.025);
+
+    gfx_circle(
+      x+cos(t)*r*1.30,
+      y+sin(t)*r*1.30,
+      max(1.8,r*0.075),
+      1,
+      1
+    );
+
+    // bright inner dot
+    gfx_set(0.91,0.91,0.91);
+
+    gfx_circle(
+      x+cos(t)*r*1.30,
+      y+sin(t)*r*1.30,
+      max(1.35,r*0.052),
+      1,
+      1
+    );
+
+    i += 1;
+  );
+
+  // drop shadow
+  gfx_set(0,0,0,0.42);
+
+  gfx_circle(
+    x+r*0.10,
+    y+r*0.20,
+    r+2,
+    1,
+    1
+  );
+
+  gfx_a = 1;
+
+  // outer skirt
+  gfx_set(0.035,0.035,0.035);
+
+  gfx_circle(
+    x,
+    y,
+    r+1.5,
+    1,
+    1
+  );
+
+  // metal rim
+  gfx_set(0.54,0.54,0.54);
+
+  gfx_circle(
+    x,
+    y,
+    r+0.5,
+    1,
+    1
+  );
+
+  // dark inner rim
+  gfx_set(
+    colr*0.55,
+    colg*0.55,
+    colb*0.55
+  );
+
+  gfx_circle(
+    x,
+    y,
+    r-0.5,
+    1,
+    1
+  );
+
+  // main knob face
+  gfx_set(colr,colg,colb);
+
+  gfx_circle(
+    x,
+    y,
+    r*0.88,
+    1,
+    1
+  );
+
+  // top-left light
+  gfx_set(1,1,1,0.15);
+
+  gfx_circle(
+    x-r*0.18,
+    y-r*0.24,
+    r*0.55,
+    1,
+    1
+  );
+
+  // bottom-right shadow
+  gfx_set(0,0,0,0.17);
+
+  gfx_circle(
+    x+r*0.22,
+    y+r*0.28,
+    r*0.50,
+    1,
+    1
+  );
+
+  gfx_a = 1;
+
+  // pointer
+  a =
+    $pi*0.75
+    +v*$pi*1.5;
+
+  gfx_set(1,1,1);
+
+  gfx_line(
+    x+cos(a)*r*0.20,
+    y+sin(a)*r*0.20,
+    x+cos(a)*r*0.95,
+    y+sin(a)*r*0.95
+  );
+
+  gfx_line(
+    x+cos(a)*r*0.20+1,
+    y+sin(a)*r*0.20,
+    x+cos(a)*r*0.95+1,
+    y+sin(a)*r*0.95
+  );
+
+  v;
+);
+
+
+// ---- SHADOWED TEXT ----
+
+function label(str,cx,ty)
+  local(tw,th,sr,sg,sb)
+(
+  sr = gfx_r;
+  sg = gfx_g;
+  sb = gfx_b;
+
+  gfx_measurestr(str,tw,th);
+
+  gfx_set(0,0,0,0.90);
+
+  gfx_x =
+    cx-tw/2+1;
+
+  gfx_y =
+    ty+1;
+
+  gfx_drawstr(str);
+
+  gfx_set(sr,sg,sb);
+
+  gfx_x =
+    cx-tw/2;
+
+  gfx_y =
+    ty;
+
+  gfx_drawstr(str);
+);
+
+
+// ---- SCALE LABEL ----
+
+function tlab(str,frac)
+  local(t)
+(
+  t =
+    $pi*0.75
+    +frac*$pi*1.5;
+
+  gfx_setfont(1);
+
+  gfx_set(0.96,0.96,0.96);
+
+  label(
+    str,
+    lx+cos(t)*kr*1.70,
+    ly+sin(t)*kr*1.70-fs*0.50
+  );
+);
+
+
+// ---- CONTROL CELL ----
+
+function ccell(id,cx,cy,v,steps,name)
+(
+  lx = cx;
+  ly = cy;
+
+  v =
+    knob(
+      id,
+      cx,
+      cy,
+      kr,
+      v,
+      steps
+    );
+
+  gfx_setfont(2);
+
+  gfx_set(0.96,0.96,0.96);
+
+  label(
+    name,
+    cx,
+    cy+kr*1.20+fs*0.90
+  );
+
+  v;
+);
+
+
+// ---- MIC BUTTON ----
+
+function pbtn(id,x,y,bw,bh,v,txt)
+  local(tw,th)
+(
+  ((mouse_cap & 1) &&
+   (last_cap == 0) &&
+   mouse_x >= x &&
+   mouse_x < x+bw &&
+   mouse_y >= y &&
+   mouse_y < y+bh) ?
+
+  (
+    v = 1-v;
+
+    changed = id;
+  );
+
+  gfx_set(0.02,0.02,0.02);
+
+  gfx_rect(
+    x+2,
+    y+2,
+    bw,
+    bh
+  );
+
+  (v > 0.5) ?
+    gfx_set(0.76,0.76,0.74)
+  :
+    gfx_set(0.13,0.13,0.13);
+
+  gfx_rect(
+    x,
+    y,
+    bw,
+    bh
+  );
+
+  (v > 0.5) ?
+    gfx_set(0.91,0.91,0.89)
+  :
+    gfx_set(0.08,0.08,0.08);
+
+  gfx_rect(
+    x+3,
+    y+3,
+    bw-6,
+    bh-6
+  );
+
+  (txt != "") ?
+  (
+    gfx_setfont(2);
+
+    gfx_set(0.96,0.96,0.96);
+
+    gfx_measurestr(
+      txt,
+      tw,
+      th
+    );
+
+    gfx_x =
+      x+(bw-tw)/2;
+
+    gfx_y =
+      y+(bh-th)/2;
+
+    gfx_drawstr(txt);
+  );
+
+  v;
+);
+
+
+// ---- GFX ----
+
+@gfx 120 420
+
+gfx_clear = 0x262626;
+
+gfx_a = 1;
+
+gfx_ext_flags = 256;
+
+w = gfx_w;
+h = gfx_h;
+
+// background
+((w != bg_w) || (h != bg_h)) ?
+(
+  bg_w = w;
+  bg_h = h;
+
+  build_bg(w,h);
+);
+
+gfx_x = 0;
+gfx_y = 0;
+
+gfx_blit(1,1,0);
+
+// horizontal layout
+m =
+  max(
+    3,
+    w*0.03
+  );
+
+cw =
+  (w-2*m)/2;
+
+cx1 =
+  m+cw*0.5;
+
+cx2 =
+  m+cw*1.5;
+
+cxc =
+  w/2;
+
+// fixed-size control dimensions
+kr = 13;
+fs = 9;
+
+// vertical layout
+y_offset = -4;
+
+y1 = 32 + y_offset;
+
+row_gap_top = 52;
+y2 = y1+row_gap_top;
+
+row_gap_mid = 58;
+y3 = y2+row_gap_mid;
+
+row_gap_hp = 50;
+y4 = y3+row_gap_hp;
+
+row_gap_gain = 50;
+y5 = y4+row_gap_gain;
+
+// fonts
+gfx_setfont(
+  1,
+  "Arial",
+  fs
+);
+
+gfx_setfont(
+  2,
+  "Arial",
+  fs*1.08,
+  98
+);
+
+changed = 0;
+
+
+// SHELF
+setcol(
+  0.27,
+  0.27,
+  0.28
+);
+
+slider1 =
+  ccell(
+    1,
+    cxc,
+    y1,
+    slider1,
+    0,
+    "SHELF"
+  );
+
+tlab("-",0);
+tlab("+",1);
+
+
+// MF GAIN / MF FREQ
+setcol(
+  0.27,
+  0.27,
+  0.28
+);
+
+slider2 =
+  ccell(
+    2,
+    cx1,
+    y2,
+    slider2,
+    0,
+    "MF GAIN"
+  );
+
+tlab("-",0);
+tlab("+",1);
+
+
+setcol(
+  0.27,
+  0.27,
+  0.28
+);
+
+slider3 =
+  ccell(
+    3,
+    cx2,
+    y2,
+    slider3,
+    7,
+    "MF FREQ"
+  );
+
+tlab("0",0);
+tlab("7.2",1);
+
+
+// LF GAIN / LF FREQ
+setcol(
+  0.27,
+  0.27,
+  0.28
+);
+
+slider4 =
+  ccell(
+    4,
+    cx1,
+    y3,
+    slider4,
+    0,
+    "LF GAIN"
+  );
+
+tlab("-",0);
+tlab("+",1);
+
+
+setcol(
+  0.27,
+  0.27,
+  0.28
+);
+
+slider5 =
+  ccell(
+    5,
+    cx2,
+    y3,
+    slider5,
+    5,
+    "LF FREQ"
+  );
+
+tlab("0",0);
+tlab("220",1);
+
+
+// HP
+setcol(
+  0.18,
+  0.29,
+  0.47
+);
+
+slider6 =
+  ccell(
+    6,
+    cxc,
+    y4,
+    slider6,
+    5,
+    "HP"
+  );
+
+tlab("0",0);
+tlab("300",1);
+
+
+// GAIN / TRIM
+setcol(
+  0.55,
+  0.16,
+  0.13
+);
+
+slider7 =
+  ccell(
+    7,
+    cx1,
+    y5,
+    slider7,
+    0,
+    "GAIN"
+  );
+
+tlab("-",0);
+tlab("+",1);
+
+
+setcol(
+  0.25,
+  0.25,
+  0.25
+);
+
+slider8 =
+  ccell(
+    8,
+    cx2,
+    y5,
+    slider8,
+    0,
+    "TRIM"
+  );
+
+tlab("-",0);
+tlab("+",1);
+
+
+// MIC / BUTTON
+mic_offset = 25;
+
+mic_bw = 23;
+mic_bh = 13;
+
+mic_gap = 5;
+
+gfx_setfont(
+  2,
+  "Arial",
+  fs*1.08,
+  98
+);
+
+gfx_measurestr(
+  "MIC",
+  mic_tw,
+  mic_th
+);
+
+group_w =
+  mic_tw
+  +mic_gap
+  +mic_bw;
+
+group_x =
+  cxc-group_w/2;
+
+mic_y =
+  y5
+  +kr
+  +mic_offset;
+
+mic_x =
+  group_x;
+
+button_x =
+  group_x
+  +mic_tw
+  +mic_gap;
+
+button_y =
+  mic_y;
+
+gfx_set(
+  0.96,
+  0.96,
+  0.96
+);
+
+label(
+  "MIC",
+  mic_x+mic_tw/2,
+  mic_y+(mic_bh-mic_th)/2
+);
+
+slider9 =
+  pbtn(
+    9,
+    button_x,
+    button_y,
+    mic_bw,
+    mic_bh,
+    slider9,
+    ""
+  );
+
+
+// floating value readout while dragging (drawn last so it sits on top)
+((drag != 0) && (mouse_cap & 1)) ?
+(
+  valstr(drag, slider(drag));
+  tipbox();
+);
+
+
+// AUTOMATION
+(changed == 1) ?
+  slider_automate(slider1);
+
+(changed == 2) ?
+  slider_automate(slider2);
+
+(changed == 3) ?
+  slider_automate(slider3);
+
+(changed == 4) ?
+  slider_automate(slider4);
+
+(changed == 5) ?
+  slider_automate(slider5);
+
+(changed == 6) ?
+  slider_automate(slider6);
+
+(changed == 7) ?
+  slider_automate(slider7);
+
+(changed == 8) ?
+  slider_automate(slider8);
+
+(changed == 9) ?
+  slider_automate(slider9);
+
+
+last_cap =
+  mouse_cap & 1;
+
+(last_cap == 0) ?
+  (drag = 0);
