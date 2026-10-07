@@ -23,7 +23,6 @@ Unofficial REAPER JSFX UI wrappers for Analog Obsession plugins (BritChannel, BU
    (On Windows this is usually `C:\Users\<you>\AppData\Roaming\REAPER`.)
 2. Copy the contents of this repo's `Effects` folder into the `Effects` folder there.
 3. Copy the contents of this repo's `FXChains` folder into the `FXChains` folder there.
-4. Restart REAPER, or press F5 in the FX browser.
 
 ## Usage
 
