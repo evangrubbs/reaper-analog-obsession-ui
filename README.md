@@ -7,7 +7,7 @@ Unofficial REAPER JSFX UI wrappers for Analog Obsession plugins (BritChannel, BU
 ## Requirements
 
 - REAPER
-- The original Analog Obsession plugins you want to use, installed as [VST/VST3 - fill in]:
+- The original Analog Obsession plugins you want to use, installed as VST3, 64-bit:
   - BritChannel
   - BUSTERse
   - FETish
@@ -15,7 +15,7 @@ Unofficial REAPER JSFX UI wrappers for Analog Obsession plugins (BritChannel, BU
   - LALA
   - Rare
   - SSQ
-  - VariMOon
+  - VariMoon
 
 ## Installation
 
